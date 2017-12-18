@@ -58,6 +58,9 @@ def create_dataset(image_path_a, image_path_b,
                          cyclegan_datasets.DATASET_TO_IMAGETYPE[dataset_name])
     list_b = create_list(image_path_b, True,
                          cyclegan_datasets.DATASET_TO_IMAGETYPE[dataset_name])
+    if do_shuffle is True:
+        random.shuffle(list_a)
+	random.shuffle(list_b)
 
     output_path = cyclegan_datasets.PATH_TO_CSV[dataset_name]
     output_dir = os.path.dirname(output_path)
@@ -70,8 +73,8 @@ def create_dataset(image_path_a, image_path_b,
             list_a[i % len(list_a)],
             list_b[i % len(list_b)]
         ))
-    if do_shuffle is True:
-        random.shuffle(all_data_tuples)
+#    if do_shuffle is True:
+#        random.shuffle(all_data_tuples)
     with open(output_path, 'w') as csv_file:
         csv_writer = csv.writer(csv_file)
         for data_tuple in enumerate(all_data_tuples):
