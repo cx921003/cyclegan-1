@@ -101,3 +101,7 @@ ENV/
 .mypy_cache/
 input/
 .DS_Store
+
+# project specific
+output/
+.idea/

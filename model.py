@@ -2,7 +2,11 @@
 
 import tensorflow as tf
 
-from . import layers
+import sys
+from os import path
+sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+
+import layers
 
 # The number of samples per batch.
 BATCH_SIZE = 1

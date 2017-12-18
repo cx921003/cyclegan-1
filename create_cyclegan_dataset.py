@@ -5,7 +5,11 @@ import random
 
 import click
 
-from . import cyclegan_datasets
+import sys
+from os import path
+sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+
+import cyclegan_datasets
 
 
 def create_list(foldername, fulldir=True, suffix=".jpg"):
@@ -56,7 +60,9 @@ def create_dataset(image_path_a, image_path_b,
                          cyclegan_datasets.DATASET_TO_IMAGETYPE[dataset_name])
 
     output_path = cyclegan_datasets.PATH_TO_CSV[dataset_name]
-
+    output_dir = os.path.dirname(output_path)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     num_rows = cyclegan_datasets.DATASET_TO_SIZES[dataset_name]
     all_data_tuples = []
     for i in range(num_rows):
