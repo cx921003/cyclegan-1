@@ -4,7 +4,7 @@
   "base_lr":0.0002,
   "max_step": 200,
   "network_version": "pytorch",
-  "dataset_name": "sketch2image_trainval_unshuffled",
+  "dataset_name": "body2image_trainval_shuffled",
   "do_flipping": 1,
   "_LAMBDA_A": 10,
   "_LAMBDA_B": 10
