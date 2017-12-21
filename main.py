@@ -26,7 +26,7 @@ class CycleGAN:
     def __init__(self, pool_size, lambda_a,
                  lambda_b, output_root_dir, to_restore,
                  base_lr, max_step, network_version,
-                 dataset_name, checkpoint_dir, do_flipping, skip):
+                 dataset_name, checkpoint_dir, do_flipping, skip, lable_smoothing):
         current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
 
         self._pool_size = pool_size
@@ -44,6 +44,7 @@ class CycleGAN:
         self._checkpoint_dir = checkpoint_dir
         self._do_flipping = do_flipping
         self._skip = skip
+        self._lable_smoothing = lable_smoothing
 
         self.fake_images_A = np.zeros(
             (self._pool_size, 1, model.IMG_HEIGHT, model.IMG_WIDTH,
@@ -155,10 +156,12 @@ class CycleGAN:
         d_loss_A = losses.lsgan_loss_discriminator(
             prob_real_is_real=self.prob_real_a_is_real,
             prob_fake_is_real=self.prob_fake_pool_a_is_real,
+            label_smoothing=self._lable_smoothing,
         )
         d_loss_B = losses.lsgan_loss_discriminator(
             prob_real_is_real=self.prob_real_b_is_real,
             prob_fake_is_real=self.prob_fake_pool_b_is_real,
+            label_smoothing=self._lable_smoothing,
         )
 
         optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5)
@@ -457,9 +460,11 @@ def main(to_train, log_dir, config_filename, checkpoint_dir, skip):
     dataset_name = str(config['dataset_name'])
     do_flipping = bool(config['do_flipping'])
 
+    lable_smoothing = bool(config['lable_smoothing']) if 'lable_smoothing' in config else 1
+
     cyclegan_model = CycleGAN(pool_size, lambda_a, lambda_b, log_dir,
                               to_restore, base_lr, max_step, network_version,
-                              dataset_name, checkpoint_dir, do_flipping, skip)
+                              dataset_name, checkpoint_dir, do_flipping, skip, lable_smoothing)
 
     if to_train > 0:
         cyclegan_model.train()

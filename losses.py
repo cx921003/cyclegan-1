@@ -48,7 +48,7 @@ def lsgan_loss_generator(prob_fake_is_real):
     return tf.reduce_mean(tf.squared_difference(prob_fake_is_real, 1))
 
 
-def lsgan_loss_discriminator(prob_real_is_real, prob_fake_is_real):
+def lsgan_loss_discriminator(prob_real_is_real, prob_fake_is_real, label_smoothing):
     """Computes the LS-GAN loss as minimized by the discriminator.
 
     Rather than compute the negative loglikelihood, a least-squares loss is
@@ -66,6 +66,8 @@ def lsgan_loss_discriminator(prob_real_is_real, prob_fake_is_real):
 
     Returns:
         The total LS-GAN loss.
+
+    Add label smoothing.
     """
-    return (tf.reduce_mean(tf.squared_difference(prob_real_is_real, 1)) +
+    return (tf.reduce_mean(tf.squared_difference(prob_real_is_real, label_smoothing)) +
             tf.reduce_mean(tf.squared_difference(prob_fake_is_real, 0))) * 0.5
