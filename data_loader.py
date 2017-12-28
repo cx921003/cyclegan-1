@@ -4,11 +4,10 @@ import sys
 from os import path
 sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
 
-import cyclegan_datasets
 import model
 
 
-def _load_samples(csv_name, image_type):
+def _load_samples(csv_name):
     filename_queue = tf.train.string_input_producer(
         [csv_name])
 
@@ -23,21 +22,31 @@ def _load_samples(csv_name, image_type):
 
     file_contents_i = tf.read_file(filename_i)
     file_contents_j = tf.read_file(filename_j)
-    if image_type == '.jpg':
-        image_decoded_A = tf.image.decode_jpeg(
+
+    # TODO: make it cleaner. decode_png also works for jpeg.
+    image_decoded_A = tf.image.decode_png(
             file_contents_i, channels=model.IMG_CHANNELS)
-        image_decoded_B = tf.image.decode_jpeg(
+    image_decoded_B = tf.image.decode_png(
             file_contents_j, channels=model.IMG_CHANNELS)
-    elif image_type == '.png':
-        image_decoded_A = tf.image.decode_png(
-            file_contents_i, channels=model.IMG_CHANNELS, dtype=tf.uint8)
-        image_decoded_B = tf.image.decode_png(
-            file_contents_j, channels=model.IMG_CHANNELS, dtype=tf.uint8)
+
+    # if '.jpg' in filename_i:
+    #     image_decoded_A = tf.image.decode_jpeg(
+    #         file_contents_i, channels=model.IMG_CHANNELS)
+    # elif '.png' in filename_i:
+    #     image_decoded_A = tf.image.decode_png(
+    #         file_contents_i, channels=model.IMG_CHANNELS, dtype=tf.uint8)
+    #
+    # if '.jpg' in filename_j:
+    #     image_decoded_B = tf.image.decode_jpeg(
+    #         file_contents_j, channels=model.IMG_CHANNELS)
+    # elif '.png' in filename_j:
+    #     image_decoded_B = tf.image.decode_png(
+    #         file_contents_j, channels=model.IMG_CHANNELS, dtype=tf.uint8)
 
     return image_decoded_A, image_decoded_B
 
 
-def load_data(dataset_name, image_size_before_crop,
+def load_data(csv_name, image_size_before_crop,
               do_shuffle=True, do_flipping=False):
     """
 
@@ -47,14 +56,12 @@ def load_data(dataset_name, image_size_before_crop,
     :param do_flipping: Flip switch.
     :return:
     """
-    if dataset_name not in cyclegan_datasets.DATASET_TO_SIZES:
-        raise ValueError('split name %s was not recognized.'
-                         % dataset_name)
-
-    csv_name = cyclegan_datasets.PATH_TO_CSV[dataset_name]
+    # if dataset_name not in cyclegan_datasets.DATASET_TO_SIZES:
+    #     raise ValueError('split name %s was not recognized.'
+    #                      % dataset_name)
 
     image_i, image_j = _load_samples(
-        csv_name, cyclegan_datasets.DATASET_TO_IMAGETYPE[dataset_name])
+        csv_name)
     inputs = {
         'image_i': image_i,
         'image_j': image_j

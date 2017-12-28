@@ -14,7 +14,6 @@ import sys
 from os import path
 sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
 
-import cyclegan_datasets
 import data_loader, losses, model
 
 slim = tf.contrib.slim
@@ -269,7 +268,7 @@ class CycleGAN:
                 tf.local_variables_initializer())
         saver = tf.train.Saver()
 
-        max_images = cyclegan_datasets.DATASET_TO_SIZES[self._dataset_name]
+        max_images = sum(1 for line in open(self._dataset_name))#cyclegan_datasets.DATASET_TO_SIZES[self._dataset_name]
 
         with tf.Session() as sess:
             sess.run(init)
@@ -401,8 +400,7 @@ class CycleGAN:
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
 
-            self._num_imgs_to_save = cyclegan_datasets.DATASET_TO_SIZES[
-                self._dataset_name]
+            self._num_imgs_to_save = sum(1 for line in open(self._dataset_name))
             self.save_images(sess, 0)
 
             coord.request_stop()

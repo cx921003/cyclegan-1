@@ -9,9 +9,6 @@ import sys
 from os import path
 sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
 
-import cyclegan_datasets
-
-
 def create_list(foldername, fulldir=True, suffix=".jpg"):
     """
 
@@ -52,21 +49,29 @@ def create_list(foldername, fulldir=True, suffix=".jpg"):
               type=click.BOOL,
               default=False,
               help='Whether to shuffle images when creating the dataset.')
+@click.option('--output_path',
+              type=click.STRING,
+              default=None,
+              help='The path where the output will be stored.')
 def create_dataset(image_path_a, image_path_b,
-                   dataset_name, do_shuffle):
+                   dataset_name, do_shuffle, output_path):
+    suffix_a = next(os.walk(image_path_a))[2][0].rsplit('.')[-1]
+    suffix_b = next(os.walk(image_path_b))[2][0].rsplit('.')[-1]
     list_a = create_list(image_path_a, True,
-                         cyclegan_datasets.DATASET_TO_IMAGETYPE[dataset_name])
+                         suffix_a)
     list_b = create_list(image_path_b, True,
-                         cyclegan_datasets.DATASET_TO_IMAGETYPE[dataset_name])
+                         suffix_b)
     if do_shuffle is True:
         random.shuffle(list_a)
-	random.shuffle(list_b)
+        random.shuffle(list_b)
 
-    output_path = cyclegan_datasets.PATH_TO_CSV[dataset_name]
+    if output_path is None:
+        output_path = cyclegan_datasets.PATH_TO_CSV[dataset_name]
     output_dir = os.path.dirname(output_path)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    num_rows = cyclegan_datasets.DATASET_TO_SIZES[dataset_name]
+    num_rows = max( len(next(os.walk(image_path_a))[2]),
+                    len(next(os.walk(image_path_b))[2]) ) #cyclegan_datasets.DATASET_TO_SIZES[dataset_name]
     all_data_tuples = []
     for i in range(num_rows):
         all_data_tuples.append((
