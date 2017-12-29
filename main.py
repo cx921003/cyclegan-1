@@ -266,7 +266,7 @@ class CycleGAN:
         # Initializing the global variables
         init = (tf.global_variables_initializer(),
                 tf.local_variables_initializer())
-        saver = tf.train.Saver()
+        saver = tf.train.Saver(keep_checkpoint_every_n_hours=5)
 
         max_images = sum(1 for line in open(self._dataset_name))#cyclegan_datasets.DATASET_TO_SIZES[self._dataset_name]
 

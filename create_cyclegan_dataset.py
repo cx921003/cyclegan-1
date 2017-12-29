@@ -19,7 +19,7 @@ def create_list(foldername, fulldir=True, suffix=".jpg"):
     :return: The list of filenames in the folder with given suffix.
 
     """
-    file_list_tmp = os.listdir(foldername)
+    file_list_tmp = sorted(os.listdir(foldername) )
     file_list = []
     if fulldir:
         for item in file_list_tmp:
@@ -66,7 +66,8 @@ def create_dataset(image_path_a, image_path_b,
         random.shuffle(list_b)
 
     if output_path is None:
-        output_path = cyclegan_datasets.PATH_TO_CSV[dataset_name]
+        pass
+        # output_path = cyclegan_datasets.PATH_TO_CSV[dataset_name]
     output_dir = os.path.dirname(output_path)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
