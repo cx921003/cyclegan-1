@@ -1,7 +1,7 @@
 {
   "description": "The official PyTorch version of CycleGAN.", 
   "pool_size": 50,
-  "base_lr":0.0002,
+  "base_lr":0.0004,
   "max_step": 200,
   "network_version": "pytorch",
   "dataset_name": "/home/xu/workspace/cyclegan-1/input/sketch2image/sketch2image_trainval_shuffled.csv",

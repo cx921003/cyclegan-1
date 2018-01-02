@@ -7,5 +7,6 @@
   "dataset_name": "/home/xu/workspace/cyclegan-1/input/sketch2image/sketch2image_trainval_shuffled.csv",
   "do_flipping": 1,
   "_LAMBDA_A": 10,
-  "_LAMBDA_B": 10
+  "_LAMBDA_B": 10,
+  "forward_only": 1
 }

@@ -1,0 +1,6 @@
+{
+  "description": "The official PyTorch version of CycleGAN.", 
+  "network_version": "pytorch",
+  "dataset_name": "/home/xu/workspace/cyclegan-1/input/sketch2image/sketch2image_test.csv",
+  "do_flipping": 0
+}

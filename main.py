@@ -25,7 +25,7 @@ class CycleGAN:
     def __init__(self, pool_size, lambda_a,
                  lambda_b, output_root_dir, to_restore,
                  base_lr, max_step, network_version,
-                 dataset_name, checkpoint_dir, do_flipping, skip, lable_smoothing):
+                 dataset_name, checkpoint_dir, do_flipping, skip, label_smoothing, forward_only):
         current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
 
         self._pool_size = pool_size
@@ -43,7 +43,8 @@ class CycleGAN:
         self._checkpoint_dir = checkpoint_dir
         self._do_flipping = do_flipping
         self._skip = skip
-        self._lable_smoothing = lable_smoothing
+        self._label_smoothing = label_smoothing
+        self._forward_only = forward_only
 
         self.fake_images_A = np.zeros(
             (self._pool_size, 1, model.IMG_HEIGHT, model.IMG_WIDTH,
@@ -126,6 +127,55 @@ class CycleGAN:
         self.prob_fake_pool_b_is_real = outputs['prob_fake_pool_b_is_real']
 
     def compute_losses(self):
+        if self._forward_only:
+            return self.compute_losses_forward()
+        else:
+            return self.compute_losses_bidirectional()
+
+    def compute_losses_forward(self):
+        """
+        In this function we are defining the variables for loss calculations
+        and training model in forward only model.
+
+        d_loss_A/d_loss_B -> loss for discriminator A/B
+        g_loss_A/g_loss_B -> loss for generator A/B
+        *_trainer -> Various trainer for above loss functions
+        *_summ -> Summary variables for above loss functions
+        """
+        cycle_consistency_loss_a = \
+            self._lambda_a * losses.cycle_consistency_loss(
+                real_images=self.input_a, generated_images=self.cycle_images_a,
+            )
+
+        lsgan_loss_b = losses.lsgan_loss_generator(self.prob_fake_b_is_real)
+
+        g_loss_A = \
+            cycle_consistency_loss_a + lsgan_loss_b
+
+        d_loss_B = losses.lsgan_loss_discriminator(
+            prob_real_is_real=self.prob_real_b_is_real,
+            prob_fake_is_real=self.prob_fake_pool_b_is_real,
+            label_smoothing=self._label_smoothing,
+        )
+
+        optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5)
+
+        self.model_vars = tf.trainable_variables()
+
+        g_A_vars = [var for var in self.model_vars if 'g_A' in var.name or 'g_B' in var.name]
+        d_B_vars = [var for var in self.model_vars if 'd_B' in var.name]
+
+        self.d_B_trainer = optimizer.minimize(d_loss_B, var_list=d_B_vars)
+        self.g_A_trainer = optimizer.minimize(g_loss_A, var_list=g_A_vars)
+
+        for var in self.model_vars:
+            print(var.name)
+
+        # Summary variables for tensorboard
+        self.g_A_loss_summ = tf.summary.scalar("g_A_loss", g_loss_A)
+        self.d_B_loss_summ = tf.summary.scalar("d_B_loss", d_loss_B)
+
+    def compute_losses_bidirectional(self):
         """
         In this function we are defining the variables for loss calculations
         and training model.
@@ -155,12 +205,12 @@ class CycleGAN:
         d_loss_A = losses.lsgan_loss_discriminator(
             prob_real_is_real=self.prob_real_a_is_real,
             prob_fake_is_real=self.prob_fake_pool_a_is_real,
-            label_smoothing=self._lable_smoothing,
+            label_smoothing=self._label_smoothing,
         )
         d_loss_B = losses.lsgan_loss_discriminator(
             prob_real_is_real=self.prob_real_b_is_real,
             prob_fake_is_real=self.prob_fake_pool_b_is_real,
-            label_smoothing=self._lable_smoothing,
+            label_smoothing=self._label_smoothing,
         )
 
         optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5)
@@ -229,6 +279,54 @@ class CycleGAN:
                     )
                 v_html.write("<br>")
 
+    def save_images_test(self, sess, epoch):
+        """
+        Saves input and output images.
+
+        :param sess: The session.
+        :param epoch: Currnt epoch.
+        """
+        if not os.path.exists(self._images_dir):
+            os.makedirs(self._images_dir)
+
+        names = ['inputA_', 'inputB_', 'fakeA_',
+                 'fakeB_', 'cycA_', 'cycB_']
+
+        with open(os.path.join(
+                self._output_dir, 'epoch_' + str(epoch) + '.html'
+        ), 'w') as v_html:
+            for i in range(0, self._num_imgs_to_save):
+                print("Saving image {}/{}".format(i, self._num_imgs_to_save))
+                inputs = sess.run(self.inputs)
+                print inputs['names_i'], inputs['names_j']
+
+                fake_A_temp, fake_B_temp, cyc_A_temp, cyc_B_temp = sess.run([
+                    self.fake_images_a,
+                    self.fake_images_b,
+                    self.cycle_images_a,
+                    self.cycle_images_b
+                ], feed_dict={
+                    self.input_a: inputs['images_i'],
+                    self.input_b: inputs['images_j']
+                })
+
+                tensors = [inputs['images_i'], inputs['images_j'],
+                           fake_B_temp, fake_A_temp, cyc_A_temp, cyc_B_temp]
+
+                print os.path.basename(inputs['names_i'][0]).split('.')[0]
+                for name, tensor in zip(names, tensors):
+                    index = os.path.basename(inputs['names_i'][0]).split('.')[0]
+                    image_name = name + str(epoch) + "_" + str(int(index)) + ".jpg"
+                    imsave(os.path.join(self._images_dir, image_name),
+                           ((tensor[0] + 1) * 127.5).astype(np.uint8)
+                           )
+                    v_html.write(
+                        "<img src=\"" +
+                        os.path.join('imgs', image_name) + "\">"
+                    )
+                v_html.write("<br>")
+
+
     def fake_image_pool(self, num_fakes, fake, fake_pool):
         """
         This function saves the generated image to corresponding
@@ -286,6 +384,8 @@ class CycleGAN:
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
 
+            writer.add_graph(sess.graph)
+
             # Training Loop
             for epoch in range(sess.run(self.global_step), self._max_step):
                 print("In the epoch ", epoch)
@@ -338,37 +438,38 @@ class CycleGAN:
                     )
                     writer.add_summary(summary_str, epoch * max_images + i)
 
-                    # Optimizing the G_B network
-                    _, fake_A_temp, summary_str = sess.run(
-                        [self.g_B_trainer,
-                         self.fake_images_a,
-                         self.g_B_loss_summ],
-                        feed_dict={
-                            self.input_a:
-                                inputs['images_i'],
-                            self.input_b:
-                                inputs['images_j'],
-                            self.learning_rate: curr_lr
-                        }
-                    )
-                    writer.add_summary(summary_str, epoch * max_images + i)
+                    if not self._forward_only:
+                        # Optimizing the G_B network
+                        _, fake_A_temp, summary_str = sess.run(
+                            [self.g_B_trainer,
+                             self.fake_images_a,
+                             self.g_B_loss_summ],
+                            feed_dict={
+                                self.input_a:
+                                    inputs['images_i'],
+                                self.input_b:
+                                    inputs['images_j'],
+                                self.learning_rate: curr_lr
+                            }
+                        )
+                        writer.add_summary(summary_str, epoch * max_images + i)
 
-                    fake_A_temp1 = self.fake_image_pool(
-                        self.num_fake_inputs, fake_A_temp, self.fake_images_A)
+                        fake_A_temp1 = self.fake_image_pool(
+                            self.num_fake_inputs, fake_A_temp, self.fake_images_A)
 
-                    # Optimizing the D_A network
-                    _, summary_str = sess.run(
-                        [self.d_A_trainer, self.d_A_loss_summ],
-                        feed_dict={
-                            self.input_a:
-                                inputs['images_i'],
-                            self.input_b:
-                                inputs['images_j'],
-                            self.learning_rate: curr_lr,
-                            self.fake_pool_A: fake_A_temp1
-                        }
-                    )
-                    writer.add_summary(summary_str, epoch * max_images + i)
+                        # Optimizing the D_A network
+                        _, summary_str = sess.run(
+                            [self.d_A_trainer, self.d_A_loss_summ],
+                            feed_dict={
+                                self.input_a:
+                                    inputs['images_i'],
+                                self.input_b:
+                                    inputs['images_j'],
+                                self.learning_rate: curr_lr,
+                                self.fake_pool_A: fake_A_temp1
+                            }
+                        )
+                        writer.add_summary(summary_str, epoch * max_images + i)
 
                     writer.flush()
                     self.num_fake_inputs += 1
@@ -377,13 +478,12 @@ class CycleGAN:
 
             coord.request_stop()
             coord.join(threads)
-            writer.add_graph(sess.graph)
 
     def test(self):
         """Test Function."""
         print("Testing the results")
 
-        self.inputs = data_loader.load_data(
+        self.inputs = data_loader.load_data_test(
             self._dataset_name, self._size_before_crop,
             False, self._do_flipping)
 
@@ -401,7 +501,7 @@ class CycleGAN:
             threads = tf.train.start_queue_runners(coord=coord)
 
             self._num_imgs_to_save = sum(1 for line in open(self._dataset_name))
-            self.save_images(sess, 0)
+            self.save_images_test(sess, 0)
 
             coord.request_stop()
             coord.join(threads)
@@ -458,11 +558,17 @@ def main(to_train, log_dir, config_filename, checkpoint_dir, skip):
     dataset_name = str(config['dataset_name'])
     do_flipping = bool(config['do_flipping'])
 
-    lable_smoothing = bool(config['lable_smoothing']) if 'lable_smoothing' in config else 1
+    label_smoothing = float(config['label_smoothing']) if 'label_smoothing' in config else 1
+    forward_only = bool(config['forward_only']) if 'forward_only' in config else False
+
+    print '====================================================================='
+    print 'label_smoothing :', label_smoothing
+    print 'forward_only :', forward_only
+    print '====================================================================='
 
     cyclegan_model = CycleGAN(pool_size, lambda_a, lambda_b, log_dir,
                               to_restore, base_lr, max_step, network_version,
-                              dataset_name, checkpoint_dir, do_flipping, skip, lable_smoothing)
+                              dataset_name, checkpoint_dir, do_flipping, skip, label_smoothing, forward_only)
 
     if to_train > 0:
         cyclegan_model.train()
